@@ -1,29 +1,13 @@
-# st.title("_Streamlit_ is :blue[cool] :sunglasses:")
-
-# multi = """If you end a line with two spaces,
-# a soft return is used for the next line.
-
-# Two (or more) newline characters in a row will result in a hard return.
-# """
-# st.markdown(multi)
-
-# st.markdown("*Streamlit* is **really** ***cool***.")
-# st.markdown(
-#     """
-#     :red[Streamlit] :orange[can] :green[write] :blue[text] :violet[in]
-#     :gray[pretty] :rainbow[colors] and :blue-background[highlight] text."""
-# )
-# st.markdown(
-#     "Here's a bouquet &mdash;\
-#             :tulip::cherry_blossom::rose::hibiscus::sunflower::blossom:"
-# )
-
 import streamlit as st
 from langchain_core.messages.chat import ChatMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_upstage import ChatUpstage
 from langchain_core.output_parsers import StrOutputParser
+from langchain_teddynote.prompts import load_prompt
 from dotenv import load_dotenv
+from langchain import hub
+
+load_dotenv()
 
 st.title("나만의 ChatGPT TEST")
 
@@ -34,8 +18,13 @@ if "messages" not in st.session_state:  # 처음 한번만 초기화
 with st.sidebar:
     # 초기화 버튼 생성
     clear_btn = st.button("대화 초기화")
-    if clear_btn:
-        st.session_state["messages"] = []
+
+    selected_prompt = st.selectbox(
+        "프롬프트 선택", ("기본모드", "SNS 게시글", "요약"), index=0
+    )
+
+    # if clear_btn:
+    #     st.session_state["messages"] = []
 
 
 # 이전 대화 출력
@@ -53,7 +42,7 @@ def add_message(role, message):
     )  # 대화 기록 저장
 
 
-def create_chain():
+def create_chain(prompt_type):
     # 프롬프트 템플릿 생성
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -61,6 +50,12 @@ def create_chain():
             ("user", "#Question:\n{question}"),
         ]
     )
+    if prompt_type == "SNS 게시글":
+        # Windows 오류 잡은 함수
+        prompt = load_prompt("prompts/sns.yaml", encoding="utf8")
+    elif prompt_type == "요약":
+        prompt = hub.pull("teddynote/chain-of-density-korean")
+
     # GPT
     llm = ChatUpstage(temperature=0)
     # 출력 파서
@@ -72,24 +67,15 @@ def create_chain():
 
 print_messages()  # 이전 대화 출력
 
-# 이전 저장된 메시지 출력
-# for role, message in st.session_state["messages"]:  # 딕셔너리 안에서 튜플의 키, 값 조회
-#     st.chat_message(role).write(message)  # 튜플의 키, 값을 찍어줌
-
 # 사용자의 입력
 user_input = st.chat_input("궁금한 내용을 물어보세요.")
 
 # 사용자 입력이 들어오면,
 if user_input:
-    # with st.chat_message("user"):
-    #     st.write(user_input)
-
     # 사용자의 입력 프린트
     st.chat_message("user").write(user_input)  # with ~ 와 같은 의미
     # 체인을 생성
-    chain = create_chain()
-    # ai_answer = chain.invoke({"question": user_input})  # 체인 실행
-    # st.chat_message("assistant").write(ai_answer)
+    chain = create_chain(selected_prompt)
 
     # stream 사용법
     response = chain.stream({"question": user_input})  # 스트림으로 출력
@@ -106,5 +92,3 @@ if user_input:
     # 대화 기록 저장
     add_message("user", user_input)
     add_message("assistant", ai_answer)
-    # st.session_state["messages"].append(("user", user_input))  # tuple 형식으로 저장
-    # st.session_state["messages"].append(("assistant", user_input))
